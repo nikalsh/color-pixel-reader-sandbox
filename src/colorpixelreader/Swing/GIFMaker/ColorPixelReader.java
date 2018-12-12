@@ -20,6 +20,9 @@ import java.awt.image.AffineTransformOp;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -168,7 +171,7 @@ public class ColorPixelReader {
 
     }
 
-    public void loop() {
+    public void loop() throws InterruptedException {
 
         while (true) {
             W = panel.getWidth() - 10;
@@ -191,7 +194,7 @@ public class ColorPixelReader {
 
     }
 
-    private Image getScreenshot(Point p, int w, int h, Color color) {
+    private Image getScreenshot(Point p, int w, int h, Color color) throws InterruptedException {
 
         Color inverted = invertColor(color);
 
@@ -203,7 +206,10 @@ public class ColorPixelReader {
         newP.x -= w / 2;
         newP.y -= h / 2;
 
-        BufferedImage cap = robot.createScreenCapture(new Rectangle(newP, new Dimension(w, h)));
+        BufferedImage cap = null;
+
+        cap = robot.createScreenCapture(new Rectangle(newP, new Dimension(w, h)));
+
 //        Image temp = cap.getScaledInstance(size * zoom, size * zoom, Image.SCALE_FAST);
         AffineTransform at = new AffineTransform();
 
@@ -259,8 +265,10 @@ public class ColorPixelReader {
     }
     List<BufferedImage> imgs = new ArrayList<>();
 
-    private void recordCurrentFrame(BufferedImage img) {
+    private void recordCurrentFrame(BufferedImage img) throws InterruptedException {
         imgs.add(img);
+        Thread.sleep(175);
+
     }
 
     private void encodeRecordedFramesToGif() {
@@ -276,7 +284,11 @@ public class ColorPixelReader {
 
     private void doTheSave() {
         try {
-            ImageOutputStream output = new FileImageOutputStream(new File("src/colorpixelreader/swing/GIFMaker/output/rec" + name++ + ".gif/"));
+            File file = new File("src/colorpixelreader/swing/GIFMaker/output/rec " + 
+                    LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-Hms"))
+                    + ".gif/");
+        
+            ImageOutputStream output = new FileImageOutputStream(file);
 
             GifSequenceWriter writer = new GifSequenceWriter(output, imgs.get(1).getType(), 0, true);
 
@@ -299,7 +311,7 @@ public class ColorPixelReader {
         return iColor;
     }
 
-    public static void main(String[] args) throws AWTException {
+    public static void main(String[] args) throws AWTException, InterruptedException {
         ColorPixelReader cp = new ColorPixelReader();
 
         cp.frame.pack();
