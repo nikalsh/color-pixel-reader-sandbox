@@ -3,11 +3,12 @@
 
 ### NetBeans ###
 **/nbproject/private/
+nbproject/
 build/
 nbbuild/
 dist/
 nbdist/
 .nb-gradle/
-src/colorpixelreader/Swing/GIFMaker/output
+src/colorpixelreader/Swing/GIFMaker/output/
 
 # End of https://www.gitignore.io/api/netbeans
