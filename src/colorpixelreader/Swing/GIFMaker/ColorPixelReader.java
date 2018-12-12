@@ -11,6 +11,10 @@ import java.awt.MouseInfo;
 import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.Robot;
+import java.awt.Toolkit;
+import java.awt.datatransfer.DataFlavor;
+import java.awt.datatransfer.Transferable;
+import java.awt.datatransfer.UnsupportedFlavorException;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.awt.event.MouseWheelEvent;
@@ -267,7 +271,7 @@ public class ColorPixelReader {
 
     private void recordCurrentFrame(BufferedImage img) throws InterruptedException {
         imgs.add(img);
-        Thread.sleep(175);
+        Thread.sleep(100);
 
     }
 
@@ -282,12 +286,40 @@ public class ColorPixelReader {
 
     int name = 0;
 
+    class ClipboardFile implements Transferable {
+
+        List<File> fileList;
+
+        public ClipboardFile(File file) {
+            fileList = new ArrayList<>();
+            fileList.add(file);
+
+        }
+
+        @Override
+        public DataFlavor[] getTransferDataFlavors() {
+
+            return new DataFlavor[]{DataFlavor.javaFileListFlavor};
+        }
+
+        @Override
+        public boolean isDataFlavorSupported(DataFlavor flavor) {
+            return DataFlavor.javaFileListFlavor.equals(flavor);
+        }
+
+        @Override
+        public Object getTransferData(DataFlavor flavor) throws UnsupportedFlavorException, IOException {
+            return fileList;
+        }
+
+    }
+
     private void doTheSave() {
         try {
-            File file = new File("src/colorpixelreader/swing/GIFMaker/output/rec " + 
-                    LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-Hms"))
+            File file = new File("src/colorpixelreader/swing/GIFMaker/output/rec "
+                    + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-Hms"))
                     + ".gif/");
-        
+
             ImageOutputStream output = new FileImageOutputStream(file);
 
             GifSequenceWriter writer = new GifSequenceWriter(output, imgs.get(1).getType(), 0, true);
@@ -295,6 +327,11 @@ public class ColorPixelReader {
             for (BufferedImage img : imgs) {
                 writer.writeToSequence(img);
             }
+
+            Toolkit.getDefaultToolkit()
+                    .getSystemClipboard()
+                    .setContents(new ClipboardFile(file),
+                            null);
 
             writer.close();
             output.close();
