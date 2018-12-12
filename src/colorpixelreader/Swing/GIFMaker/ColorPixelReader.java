@@ -50,8 +50,6 @@ public class ColorPixelReader {
     private final int monitorW = gd.getDisplayMode().getWidth();
     private final int monitorH = gd.getDisplayMode().getHeight();
 
-    private myKeyListener keyListener = new myKeyListener();
-
     int H;
     int W;
 
