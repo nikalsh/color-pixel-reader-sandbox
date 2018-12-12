@@ -10,5 +10,8 @@ dist/
 nbdist/
 .nb-gradle/
 src/colorpixelreader/Swing/GIFMaker/output/
+build.xml
+manifest.mf
+
 
 # End of https://www.gitignore.io/api/netbeans
