@@ -1,20 +1,16 @@
 package colorpixelreader.Swing.GIFMaker;
 
 import java.awt.Color;
-import java.awt.Dimension;
-import java.awt.FlowLayout;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
-import java.awt.GridBagLayout;
 import java.awt.Point;
-import javax.swing.JLabel;
 import javax.swing.JPanel;
 
 /**
  *
  * @author nikalsh
  */
-public class TestPane extends JPanel implements Repainter {
+public class DynamicRectangle extends JPanel implements Repainter {
 
     private Color color = Color.WHITE;
     int W = 250;
@@ -22,9 +18,8 @@ public class TestPane extends JPanel implements Repainter {
     int x = 0;
     int y = 0;
 
-    public TestPane() {
+    public DynamicRectangle() {
         setOpaque(false);
-
     }
 
     @Override
@@ -45,12 +40,9 @@ public class TestPane extends JPanel implements Repainter {
 
     @Override
     public void updateDim(int w, int h) {
-
         W = w;
         H = h;
-
         repaint();
-
     }
 
     @Override
@@ -61,14 +53,12 @@ public class TestPane extends JPanel implements Repainter {
     }
 
     @Override
-    public void update(Color c, int w, int h, Point p) {
+    public void redraw(Color c, int w, int h, Point p) {
         this.color = c;
         W = w;
         H = h;
         x = p.x;
         y = p.y;
         repaint();
-
     }
-
 }

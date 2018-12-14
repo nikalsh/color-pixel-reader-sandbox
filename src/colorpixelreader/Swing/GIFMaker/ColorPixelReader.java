@@ -12,9 +12,6 @@ import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.Robot;
 import java.awt.Toolkit;
-import java.awt.datatransfer.DataFlavor;
-import java.awt.datatransfer.Transferable;
-import java.awt.datatransfer.UnsupportedFlavorException;
 import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.awt.event.MouseWheelEvent;
@@ -31,9 +28,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.imageio.ImageIO;
+import javax.imageio.ImageWriter;
 import javax.imageio.stream.FileImageOutputStream;
 import javax.imageio.stream.ImageOutputStream;
-import javax.swing.Box;
 import javax.swing.ImageIcon;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -43,71 +41,66 @@ public class ColorPixelReader {
 
     private static final Color TRANSPARENT = new Color(1.0f, 1.0f, 1.0f, 0.0f);
 
-    JFrame CAMERA_FRAME;
-    JPanel CAMERA_PANEL;
-    JLabel CAMERA;
+    JFrame DISPLAY_FRAME;
+    JPanel DISPLAY_PANEL;
+    JLabel DISPLAY;
 
-    TestPane CURSOR_RECT;
+    DynamicRectangle cameraFrame;
     Color color;
     Robot robot;
     JFrame CURSOR_FRAME;
-    Repainter panelTransformer;
-
-    boolean RECORD = false;
+    Repainter cameraFrameTransformer;
 
     GraphicsDevice gd = GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice();
     private final int monitorW = gd.getDisplayMode().getWidth();
     private final int monitorH = gd.getDisplayMode().getHeight();
+    private final Object lock = new Object();
 
     int H;
     int W;
-
-    private final Object lock = new Object();
-
     int zoom;
-
+    boolean RECORD = false;
+    boolean SNAPSHOT = false;
     Point p = MouseInfo.getPointerInfo().getLocation();
 
     public int getZoom() {
-
 //        synchronized (lock) {
         return zoom;
 //        }
     }
 
     public ColorPixelReader() throws AWTException {
-
         W = 250;
         H = 250;
         zoom = 1;
         robot = new Robot();
 
-        CAMERA_FRAME = new JFrame();
-        CAMERA_PANEL = new JPanel();
-        CAMERA = new JLabel();
+        DISPLAY_FRAME = new JFrame();
+        DISPLAY_PANEL = new JPanel();
+        DISPLAY = new JLabel();
 
         CURSOR_FRAME = new JFrame("Testing");
-        CURSOR_RECT = new TestPane();
+        cameraFrame = new DynamicRectangle();
 
-        CAMERA_FRAME.setUndecorated(false);
-        CAMERA_FRAME.setTitle("Camera");
-        CAMERA_PANEL.setBackground(TRANSPARENT);
+        DISPLAY_FRAME.setUndecorated(false);
+        DISPLAY_FRAME.setTitle("Camera");
+        DISPLAY_PANEL.setBackground(TRANSPARENT);
+        DISPLAY.setPreferredSize(new Dimension(W, H));
+        DISPLAY_PANEL.add(DISPLAY);
 
-        CAMERA.setPreferredSize(new Dimension(W, H));
-        CAMERA_PANEL.add(CAMERA);
+        DISPLAY_FRAME.add(DISPLAY_PANEL);
 
-        CAMERA_FRAME.add(CAMERA_PANEL);
-
-        CAMERA_FRAME.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        DISPLAY_FRAME.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
         CURSOR_FRAME.setUndecorated(true);
         CURSOR_FRAME.setBackground(new Color(0, 0, 0, 0));
         CURSOR_FRAME.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        CURSOR_RECT.setPreferredSize(new Dimension(W, H));
-        CURSOR_FRAME.add(CURSOR_RECT);
-        panelTransformer = CURSOR_RECT;
+        cameraFrame.setPreferredSize(new Dimension(W, H));
+        CURSOR_FRAME.add(cameraFrame);
 
-        CAMERA_FRAME.addMouseWheelListener(new MouseWheelListener() {
+        cameraFrameTransformer = cameraFrame;
+
+        DISPLAY_FRAME.addMouseWheelListener(new MouseWheelListener() {
 
             @Override
             public void mouseWheelMoved(MouseWheelEvent e) {
@@ -128,7 +121,7 @@ public class ColorPixelReader {
             }
         });
 
-        CAMERA_FRAME.addKeyListener(new KeyListener() {
+        DISPLAY_FRAME.addKeyListener(new KeyListener() {
             int ctrl = KeyEvent.VK_CONTROL;
             HashSet<Integer> activeKeys = new HashSet<>();
 
@@ -154,32 +147,43 @@ public class ColorPixelReader {
                         System.out.println("started recording");
                     }
                 }
+
+                if (e.getKeyCode() == KeyEvent.VK_C && activeKeys.contains(ctrl)) {
+
+                    SNAPSHOT = true;
+                    System.out.println("copy current image to clipboard");
+                    //copy method will reset snapshot
+                }
+
                 activeKeys.remove(e.getKeyCode());
             }
+
         });
     }
 
     public void loop() throws InterruptedException {
 
         while (true) {
-            W = CAMERA_PANEL.getWidth() - 10;
-            H = CAMERA_PANEL.getHeight() - 10;
+            W = DISPLAY_PANEL.getWidth() - 10;
+            H = DISPLAY_PANEL.getHeight() - 10;
 
             p = MouseInfo.getPointerInfo().getLocation();
 
             color = robot.getPixelColor(p.x, p.y);
 
-            CURSOR_RECT.setPreferredSize(new Dimension(W, H));
+            cameraFrame.setPreferredSize(new Dimension(W, H));
             CURSOR_FRAME.setPreferredSize(new Dimension(W, H));
             CURSOR_FRAME.setLocation(p.x - W / 2, p.y - H / 2);
             CURSOR_FRAME.pack();
 
-            CAMERA.setIcon(new ImageIcon(getScreenshot(p, W - 10, H - 10, color)));
-            CAMERA.setPreferredSize(new Dimension(W - 10, H - 10));
+            DISPLAY.setIcon(new ImageIcon(getScreenshot(p, W - 10, H - 10, color)));
+            DISPLAY.setPreferredSize(new Dimension(W - 10, H - 10));
         }
     }
 
     private Image getScreenshot(Point p, int w, int h, Color color) throws InterruptedException {
+        Color inverted = invertColor(color);
+
         int cursor_len = 25;
         Point newP = p;
 
@@ -188,44 +192,69 @@ public class ColorPixelReader {
         newP.x -= w / 2;
         newP.y -= h / 2;
 
-        Color inverted = invertColor(color);
         BufferedImage cap = null;
         cap = robot.createScreenCapture(new Rectangle(newP, new Dimension(w, h)));
 
-        AffineTransform at = new AffineTransform();
-        at.scale(getZoom(), getZoom());
-        AffineTransformOp op = new AffineTransformOp(at, AffineTransformOp.TYPE_BILINEAR);
-        BufferedImage zoomed = null;
+        BufferedImage zoomed = new BufferedImage(w, h, cap.getType());
+        zoomed = scale(cap, getZoom());
 
-        zoomed = op.filter(cap, zoomed);
-        int siize = zoomed.getHeight();
-
-        BufferedImage cropped = new BufferedImage(w, h, cap.getType());
+        cameraFrameTransformer.redraw(inverted, w, h, p);
 
         Graphics g = zoomed.getGraphics();
-        panelTransformer.update(inverted, w, h, p);
         g.setColor(inverted);
         g.drawLine(w / 2 - cursor_len, h / 2 - cursor_len, w / 2 + cursor_len, h / 2 + cursor_len);
         g.drawLine(w / 2 - cursor_len, h / 2 + cursor_len, w / 2 + cursor_len, h / 2 - cursor_len);
         g.dispose();
 
         if (getZoom() > 1) {
-            cropped = zoomed.getSubimage(0, 0, w, h);
+            zoomed = zoomed.getSubimage(0, 0, w, h);
 
         } else {
-            cropped = zoomed.getSubimage(0, 0, w, h);
+            zoomed = zoomed.getSubimage(0, 0, w, h);
 
         }
 
         if (RECORD) {
-            addCurrentImgToImgList(cropped);
+            addCurrentImgToImgList(zoomed);
         }
 
         if (!RECORD) {
             encodeImgListToGif();
         }
-        return cropped;
+
+        if (SNAPSHOT) {
+            System.out.println("we snappin");
+            encodeCurrentImgToPNG(zoomed);
+            SNAPSHOT = false;
+        }
+        return zoomed;
     }
+
+    public BufferedImage scale(BufferedImage img, int scale) {
+        AffineTransform at = new AffineTransform();
+        at.scale(scale, scale);
+        AffineTransformOp op = new AffineTransformOp(at, AffineTransformOp.TYPE_BILINEAR);
+        BufferedImage scaled = null;
+
+        scaled = op.filter(img, scaled);
+        return scaled;
+    }
+
+    public void encodeCurrentImgToPNG(BufferedImage img) {
+
+        try {
+            File file = new File("src/colorpixelreader/swing/GIFMaker/output/screenshot "
+                    + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-Hms"))
+                    + ".png/");
+            ImageIO.write(img, "png", file);
+            
+            copyToClipboard(file);
+
+        } catch (IOException ex) {
+            Logger.getLogger(ColorPixelReader.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
     List<BufferedImage> imgs = new ArrayList<>();
 
     private void addCurrentImgToImgList(BufferedImage img) throws InterruptedException {
@@ -234,14 +263,11 @@ public class ColorPixelReader {
     }
 
     private void encodeImgListToGif() {
-
         if (!imgs.isEmpty()) {
             doTheSave();
             imgs.clear();
         }
     }
-
-//    int name = 0;
 
     private void doTheSave() {
         try {
@@ -250,7 +276,6 @@ public class ColorPixelReader {
                     + ".gif/");
 
             ImageOutputStream output = new FileImageOutputStream(file);
-
             GifSequenceWriter writer = new GifSequenceWriter(output, imgs.get(1).getType(), 0, true);
 
             for (BufferedImage img : imgs) {
@@ -270,7 +295,6 @@ public class ColorPixelReader {
     public <T> void copyToClipboard(T object) {
         //first we make it transferable to clipboard
         GenericTransferableObject gto = new GenericTransferableObject(object);
-
         //then transfer to clipboard
         Toolkit.getDefaultToolkit()
                 .getSystemClipboard()
@@ -278,7 +302,6 @@ public class ColorPixelReader {
     }
 
     private Color invertColor(Color color) {
-
         Color iColor = new Color(255 - color.getRed(), 255 - color.getGreen(), 255 - color.getBlue());
         return iColor;
     }
@@ -286,17 +309,15 @@ public class ColorPixelReader {
     public static void main(String[] args) throws AWTException, InterruptedException {
         ColorPixelReader cp = new ColorPixelReader();
 
-        cp.CAMERA_FRAME.pack();
-        cp.CAMERA_FRAME.setLocationRelativeTo(null);
-        cp.CAMERA_FRAME.setVisible(true);
-        cp.CAMERA_FRAME.setAlwaysOnTop(true);
-//        AWTUtilities.setWindowShape(cp.CAMERA_FRAME, new Ellipse2D.Double(5, 5, cp.CAMERA_FRAME.getWidth() - 10, cp.CAMERA_FRAME.getHeight() - 10));
+        cp.DISPLAY_FRAME.pack();
+        cp.DISPLAY_FRAME.setLocationRelativeTo(null);
+        cp.DISPLAY_FRAME.setVisible(true);
+        cp.DISPLAY_FRAME.setAlwaysOnTop(true);
+//        AWTUtilities.setWindowShape(cp.DISPLAY_FRAME, new Ellipse2D.Double(5, 5, cp.DISPLAY_FRAME.getWidth() - 10, cp.DISPLAY_FRAME.getHeight() - 10));
         cp.CURSOR_FRAME.pack();
         cp.CURSOR_FRAME.setVisible(true);
         cp.CURSOR_FRAME.setAlwaysOnTop(true);
-        
+
         cp.loop();
-
     }
-
 }

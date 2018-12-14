@@ -16,5 +16,5 @@ public interface Repainter {
     
     void updatePos(Point p);
     
-    void update(Color c, int w, int h, Point p);
+    void redraw(Color c, int w, int h, Point p);
 }
