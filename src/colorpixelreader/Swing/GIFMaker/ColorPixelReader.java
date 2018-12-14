@@ -25,7 +25,6 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -42,15 +41,18 @@ import javax.swing.JPanel;
 
 public class ColorPixelReader {
 
-    JFrame frame;
-    JPanel panel;
-    JLabel label;
+    private static final Color TRANSPARENT = new Color(1.0f, 1.0f, 1.0f, 0.0f);
 
-    TestPane camPanel;
+    JFrame CAMERA_FRAME;
+    JPanel CAMERA_PANEL;
+    JLabel CAMERA;
+
+    TestPane CURSOR_RECT;
     Color color;
     Robot robot;
-    JFrame camFrame;
+    JFrame CURSOR_FRAME;
     Repainter panelTransformer;
+
     boolean RECORD = false;
 
     GraphicsDevice gd = GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice();
@@ -74,16 +76,45 @@ public class ColorPixelReader {
     }
 
     public ColorPixelReader() throws AWTException {
-        class WheelListener implements MouseWheelListener {
+
+        W = 250;
+        H = 250;
+        zoom = 1;
+        robot = new Robot();
+
+        CAMERA_FRAME = new JFrame();
+        CAMERA_PANEL = new JPanel();
+        CAMERA = new JLabel();
+
+        CURSOR_FRAME = new JFrame("Testing");
+        CURSOR_RECT = new TestPane();
+
+        CAMERA_FRAME.setUndecorated(false);
+        CAMERA_FRAME.setTitle("Camera");
+        CAMERA_PANEL.setBackground(TRANSPARENT);
+
+        CAMERA.setPreferredSize(new Dimension(W, H));
+        CAMERA_PANEL.add(CAMERA);
+
+        CAMERA_FRAME.add(CAMERA_PANEL);
+
+        CAMERA_FRAME.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+
+        CURSOR_FRAME.setUndecorated(true);
+        CURSOR_FRAME.setBackground(new Color(0, 0, 0, 0));
+        CURSOR_FRAME.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        CURSOR_RECT.setPreferredSize(new Dimension(W, H));
+        CURSOR_FRAME.add(CURSOR_RECT);
+        panelTransformer = CURSOR_RECT;
+
+        CAMERA_FRAME.addMouseWheelListener(new MouseWheelListener() {
 
             @Override
             public void mouseWheelMoved(MouseWheelEvent e) {
-
                 if (e.getWheelRotation() < 0) {
                     if (zoom < 25) {
                         synchronized (lock) {
                             zoom++;
-
                         }
                     }
                 } else if (e.getWheelRotation() > 0) {
@@ -91,58 +122,13 @@ public class ColorPixelReader {
                     if (zoom > 1) {
                         synchronized (lock) {
                             zoom--;
-
                         }
                     }
-
                 }
             }
+        });
 
-            public WheelListener() {
-            }
-
-        }
-        W = 250;
-        H = 250;
-        zoom = 1;
-        robot = new Robot();
-
-//        JFrame.setDefaultLookAndFeelDecorated(true);
-        frame = new JFrame();
-        panel = new JPanel();
-        label = new JLabel();
-
-        camFrame = new JFrame("Testing");
-
-        camPanel = new TestPane();
-
-        frame.setUndecorated(false);
-//        frame.getLayeredPane().remove(frame.getLayeredPane().getComponent(1));
-//        frame.getRootPane().setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 0));
-        Color transp = new Color(1.0f, 1.0f, 1.0f, 0.0f);
-//        frame.setBackground(transp);
-        frame.setTitle("Camera");
-        panel.setBackground(transp);
-        Box vbox = Box.createVerticalBox();
-
-        label.setPreferredSize(new Dimension(W, H));
-        panel.add(label);
-//        vbox.add(panel);
-
-        frame.addMouseWheelListener(new WheelListener());
-        frame.add(panel);
-
-        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-
-        camFrame.setUndecorated(true);
-        camFrame.setBackground(new Color(0, 0, 0, 0));
-        camFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-//        camPanel.setPreferredSize(new Dimension(W-10, H-10));
-        camPanel.setPreferredSize(new Dimension(W, H));
-        camFrame.add(camPanel);
-        panelTransformer = camPanel;
-
-        frame.addKeyListener(new KeyListener() {
+        CAMERA_FRAME.addKeyListener(new KeyListener() {
             int ctrl = KeyEvent.VK_CONTROL;
             HashSet<Integer> activeKeys = new HashSet<>();
 
@@ -160,7 +146,6 @@ public class ColorPixelReader {
                 if (e.getKeyCode() == KeyEvent.VK_R && activeKeys.contains(ctrl)) {
 
                     System.out.println("ctrl + r");
-
                     if (RECORD) {
                         RECORD = false;
                         System.out.println("stopped recording");
@@ -172,53 +157,43 @@ public class ColorPixelReader {
                 activeKeys.remove(e.getKeyCode());
             }
         });
-
     }
 
     public void loop() throws InterruptedException {
 
         while (true) {
-            W = panel.getWidth() - 10;
-            H = panel.getHeight() - 10;
+            W = CAMERA_PANEL.getWidth() - 10;
+            H = CAMERA_PANEL.getHeight() - 10;
 
             p = MouseInfo.getPointerInfo().getLocation();
 
             color = robot.getPixelColor(p.x, p.y);
 
-            camPanel.setPreferredSize(new Dimension(W, H));
-            camFrame.setPreferredSize(new Dimension(W, H));
-            camFrame.setLocation(p.x - W / 2, p.y - H / 2);
-            camFrame.pack();
+            CURSOR_RECT.setPreferredSize(new Dimension(W, H));
+            CURSOR_FRAME.setPreferredSize(new Dimension(W, H));
+            CURSOR_FRAME.setLocation(p.x - W / 2, p.y - H / 2);
+            CURSOR_FRAME.pack();
 
-            label.setIcon(new ImageIcon(getScreenshot(p, W - 10, H - 10, color)));
-            label.setPreferredSize(new Dimension(W - 10, H - 10));
-
-//            panel.setBackground(color);
+            CAMERA.setIcon(new ImageIcon(getScreenshot(p, W - 10, H - 10, color)));
+            CAMERA.setPreferredSize(new Dimension(W - 10, H - 10));
         }
-
     }
 
     private Image getScreenshot(Point p, int w, int h, Color color) throws InterruptedException {
-
-        Color inverted = invertColor(color);
-
+        int cursor_len = 25;
         Point newP = p;
 
         w = (w < 1 ? 1 : w);
         h = (h < 1 ? 1 : h);
-
         newP.x -= w / 2;
         newP.y -= h / 2;
 
+        Color inverted = invertColor(color);
         BufferedImage cap = null;
-
         cap = robot.createScreenCapture(new Rectangle(newP, new Dimension(w, h)));
 
-//        Image temp = cap.getScaledInstance(size * zoom, size * zoom, Image.SCALE_FAST);
         AffineTransform at = new AffineTransform();
-
         at.scale(getZoom(), getZoom());
-
         AffineTransformOp op = new AffineTransformOp(at, AffineTransformOp.TYPE_BILINEAR);
         BufferedImage zoomed = null;
 
@@ -228,91 +203,45 @@ public class ColorPixelReader {
         BufferedImage cropped = new BufferedImage(w, h, cap.getType());
 
         Graphics g = zoomed.getGraphics();
-
-//        panelTransformer.updateColor(inverted);
-//        panelTransformer.updateDim(w, h);
-//        panelTransformer.updatePos(p);
         panelTransformer.update(inverted, w, h, p);
-
         g.setColor(inverted);
-
-        int len = 25;
-
-        g.drawLine(w / 2 - len, h / 2 - len, w / 2 + len, h / 2 + len);
-        g.drawLine(w / 2 - len, h / 2 + len, w / 2 + len, h / 2 - len);
+        g.drawLine(w / 2 - cursor_len, h / 2 - cursor_len, w / 2 + cursor_len, h / 2 + cursor_len);
+        g.drawLine(w / 2 - cursor_len, h / 2 + cursor_len, w / 2 + cursor_len, h / 2 - cursor_len);
         g.dispose();
 
-//        int x = (siize - (size * getZoom()));
-//        int y = (siize - (size * getZoom()));
         if (getZoom() > 1) {
-
             cropped = zoomed.getSubimage(0, 0, w, h);
 
-//            cropped = zoomed.getSubimage(siize - size*getZoom(), siize - size*getZoom(), size, size);
         } else {
             cropped = zoomed.getSubimage(0, 0, w, h);
 
         }
+
         if (RECORD) {
-
-            recordCurrentFrame(cropped);
-
+            addCurrentImgToImgList(cropped);
         }
 
         if (!RECORD) {
-
-            encodeRecordedFramesToGif();
-
+            encodeImgListToGif();
         }
         return cropped;
-
     }
     List<BufferedImage> imgs = new ArrayList<>();
 
-    private void recordCurrentFrame(BufferedImage img) throws InterruptedException {
+    private void addCurrentImgToImgList(BufferedImage img) throws InterruptedException {
         imgs.add(img);
         Thread.sleep(100);
-
     }
 
-    private void encodeRecordedFramesToGif() {
+    private void encodeImgListToGif() {
 
         if (!imgs.isEmpty()) {
             doTheSave();
-
             imgs.clear();
         }
     }
 
-    int name = 0;
-
-    class ClipboardFile implements Transferable {
-
-        List<File> fileList;
-
-        public ClipboardFile(File file) {
-            fileList = new ArrayList<>();
-            fileList.add(file);
-
-        }
-
-        @Override
-        public DataFlavor[] getTransferDataFlavors() {
-
-            return new DataFlavor[]{DataFlavor.javaFileListFlavor};
-        }
-
-        @Override
-        public boolean isDataFlavorSupported(DataFlavor flavor) {
-            return DataFlavor.javaFileListFlavor.equals(flavor);
-        }
-
-        @Override
-        public Object getTransferData(DataFlavor flavor) throws UnsupportedFlavorException, IOException {
-            return fileList;
-        }
-
-    }
+//    int name = 0;
 
     private void doTheSave() {
         try {
@@ -328,10 +257,7 @@ public class ColorPixelReader {
                 writer.writeToSequence(img);
             }
 
-            Toolkit.getDefaultToolkit()
-                    .getSystemClipboard()
-                    .setContents(new ClipboardFile(file),
-                            null);
+            copyToClipboard(file);
 
             writer.close();
             output.close();
@@ -339,7 +265,16 @@ public class ColorPixelReader {
         } catch (IOException ex) {
             Logger.getLogger(ColorPixelReader.class.getName()).log(Level.SEVERE, null, ex);
         }
+    }
 
+    public <T> void copyToClipboard(T object) {
+        //first we make it transferable to clipboard
+        GenericTransferableObject gto = new GenericTransferableObject(object);
+
+        //then transfer to clipboard
+        Toolkit.getDefaultToolkit()
+                .getSystemClipboard()
+                .setContents(gto, null);
     }
 
     private Color invertColor(Color color) {
@@ -351,16 +286,15 @@ public class ColorPixelReader {
     public static void main(String[] args) throws AWTException, InterruptedException {
         ColorPixelReader cp = new ColorPixelReader();
 
-        cp.frame.pack();
-        cp.frame.setLocationRelativeTo(null);
-        cp.frame.setVisible(true);
-        cp.frame.setAlwaysOnTop(true);
-
-//        AWTUtilities.setWindowShape(cp.frame, new Ellipse2D.Double(5, 5, cp.frame.getWidth() - 10, cp.frame.getHeight() - 10));
-        cp.camFrame.pack();
-        cp.camFrame.setVisible(true);
-        cp.camFrame.setAlwaysOnTop(true);
-
+        cp.CAMERA_FRAME.pack();
+        cp.CAMERA_FRAME.setLocationRelativeTo(null);
+        cp.CAMERA_FRAME.setVisible(true);
+        cp.CAMERA_FRAME.setAlwaysOnTop(true);
+//        AWTUtilities.setWindowShape(cp.CAMERA_FRAME, new Ellipse2D.Double(5, 5, cp.CAMERA_FRAME.getWidth() - 10, cp.CAMERA_FRAME.getHeight() - 10));
+        cp.CURSOR_FRAME.pack();
+        cp.CURSOR_FRAME.setVisible(true);
+        cp.CURSOR_FRAME.setAlwaysOnTop(true);
+        
         cp.loop();
 
     }

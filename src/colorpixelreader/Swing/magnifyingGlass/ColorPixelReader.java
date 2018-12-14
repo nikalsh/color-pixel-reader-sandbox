@@ -1,6 +1,5 @@
 package colorpixelreader.Swing.magnifyingGlass;
 
-import colorpixelreader.FX.temp.*;
 import java.awt.AWTException;
 import java.awt.Color;
 import java.awt.Dimension;
