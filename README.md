@@ -3,8 +3,9 @@
 #### Swing.GIFMaker
 
 - CTRL + R to start / stop recording
-- Resizing Camera window resizes recording area
-- Mouse scroll wheel up / down  to zoom
+- CTRL + C to take a screenshot
+- Mouse scroll wheel up / down to zoom
+- Resize Camera window to resize recording area
 
 ### TODO
 - Fix new image position when zooming
