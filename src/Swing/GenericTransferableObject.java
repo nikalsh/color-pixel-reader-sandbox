@@ -1,4 +1,4 @@
-package colorpixelreader.Swing.GIFMaker;
+package Swing;
 
 import java.awt.datatransfer.DataFlavor;
 import java.awt.datatransfer.Transferable;
@@ -12,9 +12,9 @@ import java.util.List;
  * @author nikalsh
  */
 class GenericTransferableObject<T> implements Transferable {
-
+    
     List<T> list;
-
+    
     public GenericTransferableObject(T objectToMakeTransferable) {
         list = new LinkedList<>();
         list.add(objectToMakeTransferable);

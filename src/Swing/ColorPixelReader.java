@@ -1,4 +1,4 @@
-package colorpixelreader.Swing.GIFMaker;
+package Swing;
 
 import java.awt.AWTException;
 import java.awt.Color;
@@ -29,7 +29,6 @@ import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.imageio.ImageIO;
-import javax.imageio.ImageWriter;
 import javax.imageio.stream.FileImageOutputStream;
 import javax.imageio.stream.ImageOutputStream;
 import javax.swing.ImageIcon;
@@ -39,29 +38,17 @@ import javax.swing.JPanel;
 
 public class ColorPixelReader {
 
-    private static final Color TRANSPARENT = new Color(1.0f, 1.0f, 1.0f, 0.0f);
+    private File dir = new File("src/Swing/output/");
 
-    JFrame DISPLAY_FRAME;
-    JPanel DISPLAY_PANEL;
-    JLabel DISPLAY;
-
-    DynamicRectangle cameraFrame;
-    Color color;
-    Robot robot;
-    JFrame CURSOR_FRAME;
-    Repainter cameraFrameTransformer;
-
-    GraphicsDevice gd = GraphicsEnvironment.getLocalGraphicsEnvironment().getDefaultScreenDevice();
-    private final int monitorW = gd.getDisplayMode().getWidth();
-    private final int monitorH = gd.getDisplayMode().getHeight();
-    private final Object lock = new Object();
-
-    int H;
-    int W;
-    int zoom;
     boolean RECORD = false;
     boolean SNAPSHOT = false;
+    Robot robot;
+    int zoom = 1;
+    private final Object lock = new Object();
+    int H;
+    int W;
     Point p = MouseInfo.getPointerInfo().getLocation();
+    ColorPixelReaderViewer cprv;
 
     public int getZoom() {
 //        synchronized (lock) {
@@ -69,38 +56,25 @@ public class ColorPixelReader {
 //        }
     }
 
+    public void makeDirectoryIfNessecary(File file) {
+        if (!file.exists()) {
+            file.mkdirs();
+            System.out.println(file + " created");
+        }
+    }
+
     public ColorPixelReader() throws AWTException {
+
+        makeDirectoryIfNessecary(dir);
+
         W = 250;
         H = 250;
-        zoom = 1;
+
+        cprv = new ColorPixelReaderViewer();
+
         robot = new Robot();
 
-        DISPLAY_FRAME = new JFrame();
-        DISPLAY_PANEL = new JPanel();
-        DISPLAY = new JLabel();
-
-        CURSOR_FRAME = new JFrame("Testing");
-        cameraFrame = new DynamicRectangle();
-
-        DISPLAY_FRAME.setUndecorated(false);
-        DISPLAY_FRAME.setTitle("Camera");
-        DISPLAY_PANEL.setBackground(TRANSPARENT);
-        DISPLAY.setPreferredSize(new Dimension(W, H));
-        DISPLAY_PANEL.add(DISPLAY);
-
-        DISPLAY_FRAME.add(DISPLAY_PANEL);
-
-        DISPLAY_FRAME.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-
-        CURSOR_FRAME.setUndecorated(true);
-        CURSOR_FRAME.setBackground(new Color(0, 0, 0, 0));
-        CURSOR_FRAME.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-        cameraFrame.setPreferredSize(new Dimension(W, H));
-        CURSOR_FRAME.add(cameraFrame);
-
-        cameraFrameTransformer = cameraFrame;
-
-        DISPLAY_FRAME.addMouseWheelListener(new MouseWheelListener() {
+        cprv.DISPLAY_FRAME.addMouseWheelListener(new MouseWheelListener() {
 
             @Override
             public void mouseWheelMoved(MouseWheelEvent e) {
@@ -121,7 +95,7 @@ public class ColorPixelReader {
             }
         });
 
-        DISPLAY_FRAME.addKeyListener(new KeyListener() {
+        cprv.DISPLAY_FRAME.addKeyListener(new KeyListener() {
             int ctrl = KeyEvent.VK_CONTROL;
             HashSet<Integer> activeKeys = new HashSet<>();
 
@@ -161,23 +135,28 @@ public class ColorPixelReader {
         });
     }
 
+    /**
+     * loop() is basically a updateView() controller method
+     *
+     * @throws InterruptedException
+     */
     public void loop() throws InterruptedException {
 
         while (true) {
-            W = DISPLAY_PANEL.getWidth() - 10;
-            H = DISPLAY_PANEL.getHeight() - 10;
+            W = cprv.DISPLAY_PANEL.getWidth() - 10;
+            H = cprv.DISPLAY_PANEL.getHeight() - 10;
 
             p = MouseInfo.getPointerInfo().getLocation();
 
-            color = robot.getPixelColor(p.x, p.y);
+            cprv.color = robot.getPixelColor(p.x, p.y);
 
-            cameraFrame.setPreferredSize(new Dimension(W, H));
-            CURSOR_FRAME.setPreferredSize(new Dimension(W, H));
-            CURSOR_FRAME.setLocation(p.x - W / 2, p.y - H / 2);
-            CURSOR_FRAME.pack();
+            cprv.cameraFrame.setPreferredSize(new Dimension(W, H));
+            cprv.CURSOR_FRAME.setPreferredSize(new Dimension(W, H));
+            cprv.CURSOR_FRAME.setLocation(p.x - W / 2, p.y - H / 2);
+            cprv.CURSOR_FRAME.pack();
 
-            DISPLAY.setIcon(new ImageIcon(getScreenshot(p, W - 10, H - 10, color)));
-            DISPLAY.setPreferredSize(new Dimension(W - 10, H - 10));
+            cprv.DISPLAY.setIcon(new ImageIcon(getScreenshot(p, W - 10, H - 10, cprv.color)));
+            cprv.DISPLAY.setPreferredSize(new Dimension(W - 10, H - 10));
         }
     }
 
@@ -198,7 +177,7 @@ public class ColorPixelReader {
         BufferedImage zoomed = new BufferedImage(w, h, cap.getType());
         zoomed = scale(cap, getZoom());
 
-        cameraFrameTransformer.redraw(inverted, w, h, p);
+        cprv.cameraFrameTransformer.redraw(inverted, w, h, p);
 
         Graphics g = zoomed.getGraphics();
         g.setColor(inverted);
@@ -243,11 +222,11 @@ public class ColorPixelReader {
     public void encodeCurrentImgToPNG(BufferedImage img) {
 
         try {
-            File file = new File("src/colorpixelreader/swing/GIFMaker/output/screenshot "
+            File file = new File(dir + "/screenshot "
                     + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-Hms"))
                     + ".png/");
             ImageIO.write(img, "png", file);
-            
+
             copyToClipboard(file);
 
         } catch (IOException ex) {
@@ -271,7 +250,7 @@ public class ColorPixelReader {
 
     private void doTheSave() {
         try {
-            File file = new File("src/colorpixelreader/swing/GIFMaker/output/rec "
+            File file = new File(dir + "/rec "
                     + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-Hms"))
                     + ".gif/");
 
@@ -309,14 +288,14 @@ public class ColorPixelReader {
     public static void main(String[] args) throws AWTException, InterruptedException {
         ColorPixelReader cp = new ColorPixelReader();
 
-        cp.DISPLAY_FRAME.pack();
-        cp.DISPLAY_FRAME.setLocationRelativeTo(null);
-        cp.DISPLAY_FRAME.setVisible(true);
-        cp.DISPLAY_FRAME.setAlwaysOnTop(true);
+        cp.cprv.DISPLAY_FRAME.pack();
+        cp.cprv.DISPLAY_FRAME.setLocationRelativeTo(null);
+        cp.cprv.DISPLAY_FRAME.setVisible(true);
+        cp.cprv.DISPLAY_FRAME.setAlwaysOnTop(true);
 //        AWTUtilities.setWindowShape(cp.DISPLAY_FRAME, new Ellipse2D.Double(5, 5, cp.DISPLAY_FRAME.getWidth() - 10, cp.DISPLAY_FRAME.getHeight() - 10));
-        cp.CURSOR_FRAME.pack();
-        cp.CURSOR_FRAME.setVisible(true);
-        cp.CURSOR_FRAME.setAlwaysOnTop(true);
+        cp.cprv.CURSOR_FRAME.pack();
+        cp.cprv.CURSOR_FRAME.setVisible(true);
+        cp.cprv.CURSOR_FRAME.setAlwaysOnTop(true);
 
         cp.loop();
     }

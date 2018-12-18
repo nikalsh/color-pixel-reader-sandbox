@@ -1,4 +1,4 @@
-package colorpixelreader.Swing.GIFMaker;
+package Swing;
 
 import java.awt.Color;
 import java.awt.Graphics;
