@@ -12,6 +12,7 @@ nbdist/
 src/colorpixelreader/Swing/GIFMaker/output/
 build.xml
 manifest.mf
+src/Swing/output/
 
 
 # End of https://www.gitignore.io/api/netbeans
